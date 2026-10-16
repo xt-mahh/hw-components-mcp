@@ -1,0 +1,26 @@
+{
+	"errInfo":null,
+	"result":{
+		"batchNumber":"20240601",
+		"brandId":1006,
+		"brandName":"ON Semiconductor",
+		"currency":"CNY",
+		"datasheetUrl":null,
+		"deliveryTime":"1-2周",
+		"goodsDesc":"SEMICONDUCTOR STM32F103C8T6 AUTHORIZED DISTRIBUTOR",
+		"goodsId":"6840577",
+		"goodsImg":"",
+		"goodsName":"STM32F103C8T6",
+		"goodsUrl":null,
+		"isOriginal":true,
+		"moq":25,
+		"packageType":"QFN-32",
+		"price":"23.7747",
+		"status":200,
+		"stockQuantity":5590,
+		"supplierId":6,
+		"supplierName":"RS Components"
+	},
+	"retCode":0,
+	"retMsg":null
+}

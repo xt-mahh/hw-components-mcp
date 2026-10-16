@@ -1,0 +1,15 @@
+{
+  "mcp": {
+    "servers": {
+      "hw-components": {
+        "command": "uv",
+        "args": [
+          "--directory",
+          "/path/to/hw-components-mcp",
+          "run",
+          "hw-components-mcp"
+        ]
+      }
+    }
+  }
+}
