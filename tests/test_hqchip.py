@@ -15,7 +15,7 @@ from hw_components_mcp.providers.base import ProviderError
 def provider(monkeypatch):
     fake = FakeClient(
         texts={
-            "https://www.hqchip.com/search?keyword=STM32F103C8T6": load_fixture(
+            "https://www.hqchip.com/search/STM32F103C8T6.html": load_fixture(
                 "hqchip_search_page.html"
             ),
             "https://item.hqchip.com/2500269839.html": load_fixture(
@@ -61,9 +61,6 @@ async def test_detail_parses_ladder_and_stock(provider):
 
 
 async def test_search_wraps_network_error_with_region_hint(monkeypatch):
-    def boom():
-        raise AssertionError("should not be called")
-
     class ErrClient:
         async def get_text(self, *a, **k):
             raise HttpError("Connection failed")
@@ -72,6 +69,37 @@ async def test_search_wraps_network_error_with_region_hint(monkeypatch):
     p = hq_mod.HqchipProvider()
     with pytest.raises(ProviderError, match="中国大陆"):
         await p.search("STM32F103C8T6")
+
+
+async def test_http_status_error_has_no_region_hint(monkeypatch):
+    class ErrClient:
+        async def get_text(self, *a, **k):
+            raise HttpError("HTTP 404 请求 ...", status_code=404)
+
+    monkeypatch.setattr(hq_mod, "get_client", lambda: ErrClient())
+    p = hq_mod.HqchipProvider()
+    with pytest.raises(ProviderError) as exc_info:
+        await p.search("STM32F103C8T6")
+    assert "中国大陆" not in str(exc_info.value)
+    assert "404" in str(exc_info.value)
+
+
+async def test_login_wall_raises_guidance(provider, monkeypatch):
+    p, fake = provider
+    fake.texts["https://www.hqchip.com/search/STM32F103C8T6.html"] = (
+        "<html><head><meta http-equiv=\"refresh\" content=\"0;url=https://www.hqchip.com/users/login.html?forceLogin=1\"></head>"
+        + "x" * 1500
+    )
+    with pytest.raises(ProviderError, match="HQCHIP_COOKIE"):
+        await p.search("STM32F103C8T6")
+
+
+async def test_cookie_env_var_is_sent(provider, monkeypatch):
+    p, fake = provider
+    monkeypatch.setenv("HQCHIP_COOKIE", "PHPSESSID=abc123")
+    await p.search("STM32F103C8T6")
+    headers = fake.calls[0][3]
+    assert headers.get("cookie") == "PHPSESSID=abc123"
 
 
 async def test_invalid_goods_id(provider):

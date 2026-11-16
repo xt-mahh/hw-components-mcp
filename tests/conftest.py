@@ -37,21 +37,21 @@ class FakeClient:
         raise AssertionError(f"unexpected url requested: {url}")
 
     async def post_json(self, url, json_body=None, headers=None, ttl=0.0):
-        self.calls.append(("POST", url, json_body))
+        self.calls.append(("POST", url, json_body, headers))
         value = self._lookup(self.json_responses, url)
         if isinstance(value, Exception):
             raise value
         return value
 
     async def get_json(self, url, params=None, headers=None, ttl=0.0):
-        self.calls.append(("GET", url, params))
+        self.calls.append(("GET", url, params, headers))
         value = self._lookup(self.json_responses, url)
         if isinstance(value, Exception):
             raise value
         return value
 
     async def get_text(self, url, headers=None, params=None, ttl=0.0):
-        self.calls.append(("GETTEXT", url, params))
+        self.calls.append(("GETTEXT", url, params, headers))
         value = self._lookup(self.texts, url)
         if isinstance(value, Exception):
             raise value

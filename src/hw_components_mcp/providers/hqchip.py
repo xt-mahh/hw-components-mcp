@@ -1,9 +1,13 @@
 """HQChip (华秋商城, hqchip.com) provider via SSR HTML parsing.
 
-Pages (login-free server-rendered, verified 2026-10):
+Pages (verified 2026-10; as of 2026-11 HQChip forces LOGIN for both):
 
-- search:  https://www.hqchip.com/search?keyword=<kw>  (redirects to /search/<kw>.html)
+- search:  https://www.hqchip.com/search/<kw>.html
 - detail:  https://item.hqchip.com/<goods_id>.html
+
+Anonymous access now redirects to a login wall, so set the environment
+variable ``HQCHIP_COOKIE`` to the Cookie header of a logged-in browser
+session. Without it, tools return a clear guidance error instead of data.
 
 Search result rows are rich: 型号/品牌/封装/描述/编号 plus an RMB ladder
 price table, spot stock and a direct datasheet PDF link. The detail page's
@@ -13,6 +17,7 @@ blob), so detail parameters stay empty in v1.
 
 from __future__ import annotations
 
+import os
 import re
 from urllib.parse import quote
 
@@ -30,6 +35,9 @@ _HEADERS = {
     "accept-language": "zh-CN,zh;q=0.9,en;q=0.8",
     "referer": "https://www.hqchip.com/",
 }
+
+# markers of the forced-login redirect page
+_LOGIN_MARKERS = ("forceLogin", "users/login.html")
 
 _GOODS_ID_RE = re.compile(r"^\d+$")
 _NUM_RE = re.compile(r"\d+(?:\.\d+)?")
@@ -200,7 +208,28 @@ class HqchipProvider(Provider):
     name = "hqchip"
     display_name = "华秋商城 hqchip.com"
     currency_note = "人民币价格（自营现货），含阶梯价与数据手册直链；详情页参数表需浏览器渲染，v1 暂不提供。"
-    region_note = "必须中国大陆网络出口访问（海外/数据中心 IP 会被直接拦截）。"
+    region_note = (
+        "需中国大陆网络出口；且 2026-11 起华秋强制登录——请设置环境变量 HQCHIP_COOKIE"
+        "（浏览器登录 hqchip.com 后复制完整 Cookie），否则返回引导性错误。"
+    )
+
+    @staticmethod
+    def _headers() -> dict[str, str]:
+        headers = dict(_HEADERS)
+        cookie = os.environ.get("HQCHIP_COOKIE", "").strip()
+        if cookie:
+            headers["cookie"] = cookie
+        return headers
+
+    @staticmethod
+    def _check_login_wall(html: str) -> None:
+        head = html[:3000]
+        if any(marker in head for marker in _LOGIN_MARKERS):
+            raise ProviderError(
+                "华秋商城已强制登录才能查看该页面：请在环境变量 HQCHIP_COOKIE 中提供"
+                "浏览器登录 hqchip.com 后的完整 Cookie（Cookie 失效也报此错），"
+                "或改用 platform='lcsc'/'jd'"
+            )
 
     async def search(
         self, keyword: str, limit: int = 10, in_stock_only: bool = False
@@ -208,14 +237,17 @@ class HqchipProvider(Provider):
         client = get_client()
         try:
             html = await client.get_text(
-                f"https://www.hqchip.com/search?keyword={quote(keyword)}",
-                headers=_HEADERS,
+                f"https://www.hqchip.com/search/{quote(keyword, safe='')}.html",
+                headers=self._headers(),
                 ttl=SEARCH_TTL,
             )
         except HttpError as exc:
-            raise ProviderError(
-                f"华秋商城访问失败：该站需要中国大陆网络出口（{exc}）"
-            ) from exc
+            if exc.status_code is None:  # connection-level failure
+                raise ProviderError(
+                    f"华秋商城连接失败（通常意味着需要中国大陆网络出口）：{exc}"
+                ) from exc
+            raise ProviderError(f"华秋商城访问失败：{exc}") from exc
+        self._check_login_wall(html)
         if len(html) < 1000:
             raise ProviderError("华秋搜索页返回异常，请稍后重试")
         items = parse_search_html(html)
@@ -230,10 +262,15 @@ class HqchipProvider(Provider):
         client = get_client()
         try:
             html = await client.get_text(
-                f"https://item.hqchip.com/{goods_id}.html", headers=_HEADERS, ttl=DETAIL_TTL
+                f"https://item.hqchip.com/{goods_id}.html", headers=self._headers(), ttl=DETAIL_TTL
             )
         except HttpError as exc:
-            raise ProviderError(f"华秋商城访问失败：该站需要中国大陆网络出口（{exc}）") from exc
+            if exc.status_code is None:
+                raise ProviderError(
+                    f"华秋商城连接失败（通常意味着需要中国大陆网络出口）：{exc}"
+                ) from exc
+            raise ProviderError(f"华秋商城访问失败：{exc}") from exc
+        self._check_login_wall(html)
         if len(html) < 1000:
             raise ProviderError(f"华秋详情页返回异常（goodsId={goods_id}，可能已下架）")
         return parse_item_html(html, goods_id)
