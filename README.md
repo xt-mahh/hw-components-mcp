@@ -4,7 +4,7 @@
 
 元器件商城 MCP Server —— 让 agent（ZCode / Claude Code / Cursor 等任何 MCP 客户端）统一检索元器件信息：搜索料号、查参数、核对库存价格、下载数据手册、找替代料。
 
-> 主仓库：[GitHub](https://github.com/xt-mahh/hw-components-mcp)，Gitee 提供国内镜像同步。
+> 主仓库：[GitHub](https://github.com/xt-mahh/hw-components-mcp) | 国内镜像：[Gitee](https://gitee.com/xt-mahh_admin/hw-components-mcp)
 
 ## 接入平台
 
@@ -113,6 +113,14 @@ src/hw_components_mcp/
 - **限流**：LCSC 官方口径为 200 次/分钟、1000 次/天（Agent API），本服务按 ≥3s 间隔 + 缓存访问，正常交互式使用远低于限额。请勿用本服务做批量爬取。
 - **合规**：仅访问各平台免登录公开页面/接口，低频、带缓存、无批量导出；数据归各平台所有，请遵守平台条款。
 - **价格口径**：LCSC=美元（全球站），华秋=人民币（自营），京东=无价（SSR 不含）。
+
+## 多平台仓库同步
+
+主仓库为 GitHub，Gitee 为国内镜像。维护者日常双推：
+
+```bash
+git push origin main && git push gitee main
+```
 
 ## License
 
